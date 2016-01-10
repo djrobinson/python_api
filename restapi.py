@@ -1,5 +1,7 @@
 import json
 import bottle
+import time
+from datetime import datetime
 from bottle import route, run, request, abort
 from pymongo import MongoClient
 from bson import Binary, Code
@@ -8,6 +10,12 @@ from bson.json_util import dumps
 connection = MongoClient("mongodb://localhost:27017")
 db = connection.bitfinex
  
+
+
+start_dt = time.mktime(datetime.strptime("04/01/15 01:00", "%d/%m/%y %H:%M").timetuple()) 
+end_dt = time.mktime(datetime.strptime("04/01/15 01:30", "%d/%m/%y %H:%M").timetuple())
+
+print(start_dt, end_dt)
 
 @route('/ticks', method='PUT')
 def put_tick():
@@ -25,7 +33,21 @@ def put_tick():
      
 @route('/ticks', method='GET')
 def get_ticks():
-    entity = dumps(db['ticks'].find_one())
+    entity = list(db['ticks'].aggregate([{"$match": {"date": {"$lt" : end_dt, "$gte" : start_dt  }}}]))
+
+
+    entity_array = []
+
+    for index in range(len(entity)):
+        date = datetime.fromtimestamp(
+            entity[index]['date']
+        ).strftime('%d/%m/%y %H:%M')
+        entity_array.append(date)
+
+        print(entity_array)
+
+
+    entity = dumps(entity_array)
 
 
     if not entity:
@@ -34,3 +56,6 @@ def get_ticks():
  
 run(host='localhost', port=8080)
 
+
+1364767668
+1364767709
