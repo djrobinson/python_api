@@ -6,14 +6,21 @@ from bottle import route, run, request, abort
 from pymongo import MongoClient
 from bson import Binary, Code
 from bson.json_util import dumps
+import dateutil.parser as parser
 
 connection = MongoClient("mongodb://localhost:27017")
 db = connection.bitfinex
  
 
 
-start_dt = time.mktime(datetime.strptime("04/01/15 01:00", "%d/%m/%y %H:%M").timetuple()) 
-end_dt = time.mktime(datetime.strptime("04/01/15 01:30", "%d/%m/%y %H:%M").timetuple())
+start_dt = datetime.strptime("16/01/70 06:00", "%d/%m/%y %H:%M")
+end_dt = datetime.strptime("16/01/70 20:00", "%d/%m/%y %H:%M")
+
+# start_dt = datetime.fromtimestamp(start_dt)
+# end_dt = datetime.fromtimestamp(end_dt)
+
+# start_dt = 1364767668
+# end_dt = 1364767709
 
 print(start_dt, end_dt)
 
@@ -33,21 +40,29 @@ def put_tick():
      
 @route('/ticks', method='GET')
 def get_ticks():
-    entity = list(db['ticks'].aggregate([{"$match": {"date": {"$lt" : end_dt, "$gte" : start_dt  }}}]))
 
+    entity = list(db['ticks'].aggregate([{"$match": {"date": {"$lt" : end_dt, "$gte" : start_dt }}},
+     {"$project": {
+         "year":       {"$year": "$date"},
+         "month":      {"$month": "$date"},
+         "day":        {"$dayOfMonth": "$date"},
+         "hour":       {"$hour": "$date"},
+         "minute":     {"$minute": "$date"},
+         "second":     {"$second": "$date"},
+         "date": 1,
+         "price": 1 }},
+     {"$sort": {"date": 1}},
+     {"$group":
+          {"_id" : {"year": "$year", "month": "$month", "day": "$day", "hour": "$hour", "minute": "$minute" },
+                    "open":  {"$first": "$price"},
+                    "high":  {"$max": "$price"},
+                    "low":   {"$min": "$price"},
+                    "close": {"$last": "$price"} }}
+                    ]))
 
-    entity_array = []
+    print(entity)
 
-    for index in range(len(entity)):
-        date = datetime.fromtimestamp(
-            entity[index]['date']
-        ).strftime('%d/%m/%y %H:%M')
-        entity_array.append(date)
-
-        print(entity_array)
-
-
-    entity = dumps(entity_array)
+    entity = dumps(entity)
 
 
     if not entity:
@@ -56,6 +71,3 @@ def get_ticks():
  
 run(host='localhost', port=8080)
 
-
-1364767668
-1364767709
