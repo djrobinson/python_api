@@ -9,8 +9,8 @@ connection = MongoClient("mongodb://localhost:27017")
 db = connection.bitfinex
  
 
-@route('/documents', method='PUT')
-def put_document():
+@route('/ticks', method='PUT')
+def put_tick():
     data = request.body.readline()
     if not data:
         abort(400, 'No data received')
@@ -23,8 +23,8 @@ def put_document():
 
         abort(400, str(ve))
      
-@route('/documents', method='GET')
-def get_document():
+@route('/ticks', method='GET')
+def get_ticks():
     entity = dumps(db['ticks'].find_one())
 
 
