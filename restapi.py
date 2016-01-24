@@ -10,7 +10,7 @@ import dateutil.parser as parser
 
 connection = MongoClient("mongodb://localhost:27017")
 db = connection.bitfinex
- 
+
 
 
 start_dt = datetime.strptime("16/01/70 06:00", "%d/%m/%y %H:%M")
@@ -37,7 +37,97 @@ def put_tick():
     except ValidationError as ve:
 
         abort(400, str(ve))
-     
+
+@route('/mktprofile', method='GET')
+def get_mktprofile():
+    entity = list(db['ticks'].aggregate([{"$match": {"date": {"$lt" : end_dt, "$gte" : start_dt}}},
+    {"$project":{
+        "date": 1,
+        "volume": 1,
+        "price": 1,
+        "range": {
+          "$concat": [{
+            "$cond": [ { "$lte": ["$price", 100] }, "range 0-100", "" ]
+          }, {
+            "$cond": [ { "$and": [
+              { "$gte": ["$price", 101] },
+              { "$lt":  ["$price", 125] }
+            ] }, "range 101-125", "" ]
+          }, {
+            "$cond": [ { "$and": [
+              { "$gte": ["$price", 126] },
+              { "$lt":  ["$price", 150] }
+            ] }, "range 126-150", "" ]
+          }, {
+            "$cond": [ { "$and": [
+              { "$gte": ["$price", 151] },
+              { "$lt":  ["$price", 175] }
+            ] }, "range 151-175", "" ]
+          }, {
+            "$cond": [ { "$and": [
+              { "$gte": ["$price", 176] },
+              { "$lt":  ["$price", 200] }
+            ] }, "range 176-200", "" ]
+          }, {
+            "$cond": [ { "$and": [
+              { "$gte": ["$price", 201] },
+              { "$lt":  ["$price", 225] }
+            ] }, "range 201-225", "" ]
+          },{
+            "$cond": [ { "$and": [
+              { "$gte": ["$price", 226] },
+              { "$lt":  ["$price", 250] }
+            ] }, "range 226-250", "" ]
+          },{
+            "$cond": [ { "$and": [
+              { "$gte": ["$price", 250] },
+              { "$lt":  ["$price", 275] }
+            ] }, "range 250-275", "" ]
+          },  ]
+        } }},
+    {"$group":
+        {"_id" : "$range",
+         "volume": {"$sum": "$volume"}}
+         }
+        ]))
+
+    print(entity)
+
+    entity = dumps(entity)
+
+    if not entity:
+        abort(404, 'No document with id %s' % id)
+    return entity
+
+
+@route('/volume', method='GET')
+def get_volume():
+    entity = list(db['ticks'].aggregate([{"$match": {"date": {"$lt" : end_dt, "$gte" : start_dt}}},
+     {"$project": {
+         "year":       {"$year": "$date"},
+         "month":      {"$month": "$date"},
+         "day":        {"$dayOfMonth": "$date"},
+         "hour":       {"$hour": "$date"},
+         "minute":     {"$minute": "$date"},
+         "second":     {"$second": "$date"},
+         "date": 1,
+         "volume": 1 }},
+     {"$sort": {"date": 1}},
+     {"$group":
+        {"_id" : {"year": "$year", "month": "$month", "day": "$day", "hour": "$hour", "minute": "$minute" },
+                  "date": {"$first": "$date"},
+                  "volume": {"$sum": "$volume"} }}
+        ]))
+
+    print(entity)
+
+    entity = dumps(entity)
+
+    if not entity:
+        abort(404, 'No document with id %s' % id)
+    return entity
+
+
 @route('/ticks', method='GET')
 def get_ticks():
 
@@ -54,6 +144,7 @@ def get_ticks():
      {"$sort": {"date": 1}},
      {"$group":
           {"_id" : {"year": "$year", "month": "$month", "day": "$day", "hour": "$hour", "minute": "$minute" },
+                    "date":  {"$first": "$date"},
                     "open":  {"$first": "$price"},
                     "high":  {"$max": "$price"},
                     "low":   {"$min": "$price"},
@@ -68,6 +159,6 @@ def get_ticks():
     if not entity:
         abort(404, 'No document with id %s' % id)
     return entity
- 
+
 run(host='localhost', port=8080)
 
